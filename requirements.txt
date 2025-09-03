@@ -1,0 +1,14 @@
+# Core
+pandas
+numpy
+requests
+apscheduler
+
+# Machine Learning
+scikit-learn
+xgboost
+lightgbm
+
+# API
+fastapi
+uvicorn[standard]
