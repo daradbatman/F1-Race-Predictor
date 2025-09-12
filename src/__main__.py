@@ -6,11 +6,11 @@ from src.models.predictor import run_prediction
 from src.models.evaluate import evaluate_model
 
 def main():
-    #build_historical_dataset()
+    build_historical_dataset()
     #build_latest_race_dataset()
-    train_model()
-    run_prediction()
-    evaluate_model()
+    #train_model()
+    #run_prediction()
+    # evaluate_model()
 
 if __name__ == "__main__":
     main()
