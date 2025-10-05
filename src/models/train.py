@@ -7,6 +7,13 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import ndcg_score
 import numpy as np
 import joblib
+import logging
+
+logging.basicConfig(
+    filename="logs/training.log",
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s"
+)
 
 def train_model():
     # Load data
@@ -86,9 +93,9 @@ def train_model():
             winner_correct += 1
         total_races += 1
 
-    print(f"Avg NDCG@10: {np.mean(ndcgs):.4f}")
-    print(f"Winner accuracy: {winner_correct}/{total_races} = {winner_correct/total_races:.2%}")
+    logging.info(f"Avg NDCG@10: {np.mean(ndcgs):.4f}")
+    logging.info(f"Winner accuracy: {winner_correct}/{total_races} = {winner_correct/total_races:.2%}")
 
     # Save model
     joblib.dump(pipeline, "f1_ranker_model.pkl")
-    print("Model trained and saved as f1_ranker_model.pkl")
+    logging.info("Model trained and saved as f1_ranker_model.pkl")

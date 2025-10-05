@@ -1,6 +1,13 @@
 import pandas as pd
 import joblib
 from src.data.build_dataset import build_latest_race_dataset
+import logging
+
+logging.basicConfig(
+    filename="logs/prediction.log",
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s"
+)
 
 def run_prediction():
     # Load the trained pipeline
@@ -8,6 +15,7 @@ def run_prediction():
 
     # Load new data (must match training features)
     new_df = build_latest_race_dataset()
+    output_path = f"data/predictions/prediction_log.csv"
 
     # Prepare features (same preprocessing as training)
     X_new = new_df.drop(columns=["driver_name"])
@@ -24,8 +32,6 @@ def run_prediction():
     results = new_df[["race_id", "race", "driver_name", "driver_number", "predicted_rank"]] \
               .sort_values(["race_id", "predicted_rank"])
 
-    print("Predicted Finishing Order:")
-    results.to_csv("data/predictions/predictions_log.csv", index=False)
-    print(results)
-
-    return results
+    logging.info("Predicted Finishing Order:")
+    results.to_csv(output_path, index=False, mode='w')
+    logging.info(results)

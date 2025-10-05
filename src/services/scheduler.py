@@ -1,56 +1,90 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime
-from src.data import train_and_save_model, run_prediction
+from src.models.train import train_model
+from src.models.predictor import run_prediction
 from src.data.build_dataset import build_historical_dataset
 from src.models.evaluate import evaluate_model
+import logging
+import time
+from datetime import timedelta
 
-PREDICTIONS_LOG = "data/predictions/predictions_log.csv"
+logging.basicConfig(
+    filename="logs/scheduler.log",
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s"
+)
+
+def safe_job(job_fn):
+    def wrapper():
+        try:
+            job_fn()
+        except Exception as e:
+            logging.exception(f"Job {job_fn.__name__} failed")
+    return wrapper
 
 def retrain_pipeline_job():
     """Rebuild dataset + retrain model as one atomic pipeline."""
-    print(f"\n[{datetime.now()}] Starting retrain pipeline...")
+    logging.info(f"\n[{datetime.now()}] Starting retrain pipeline...")
 
     # Step 1: Rebuild historical dataset
-    print("Rebuilding dataset...")
+    logging.info("Rebuilding dataset...")
     build_historical_dataset()
-    print("Dataset rebuilt.")
+    logging.info("Dataset rebuilt.")
 
     # Step 2: Retrain model
-    print("Retraining model...")
-    train_and_save_model()
-    print("Model retrained and saved.")
+    logging.info("Retraining model...")
+    train_model()
+    logging.info("Model retrained and saved.")
 
-    print(f"[{datetime.now()}] Retrain pipeline complete.\n")
+    logging.info(f"[{datetime.now()}] Retrain pipeline complete.\n")
 
 def predict_job():
-    print(f"\n[{datetime.now()}] Running prediction...")
-    results = run_prediction()
-
-    # Save predictions
-    results["timestamp"] = datetime.now()
-    results.to_csv(PREDICTIONS_LOG, mode="a", index=False, header=False)
-    print(f"Predictions logged to {PREDICTIONS_LOG}")
+    logging.info(f"\n[{datetime.now()}] Running prediction...")
+    run_prediction()
+    logging.info("Predictions logged.")
 
 def evaluate_job():
-    print(f"\n[{datetime.now()}] Evaluating model...")
-    df_eval, eval_report = evaluate_model()
-    print("Evaluation Report:", eval_report)
+    logging.info(f"\n[{datetime.now()}] Evaluating model...")
+    eval_report = evaluate_model()
+    logging.info("Evaluation Report:", eval_report)
 
-def start_scheduler():
+def start_dynamic_scheduler():
     scheduler = BackgroundScheduler()
+    scheduler.start()
 
-    # Schedule jobs (example times — adjust for actual F1 weekend timeline)
-    scheduler.add_job(predict_job, "cron", day_of_week="sat", hour=16)         # Saturday 4PM after quali
-    scheduler.add_job(retrain_pipeline_job, "cron", day_of_week="sun", hour=20) # Sunday 8PM after race
-    scheduler.add_job(evaluate_job, "cron", day_of_week="sun", hour=23)         # Sunday 11PM after race
+    schedule_jobs(scheduler)
 
     scheduler.start()
-    print("Scheduler started. Jobs will run automatically.")
+    logging.info("Scheduler started.")
 
-    # Keep the app running
     try:
         while True:
-            pass
+            time.sleep(60)
     except KeyboardInterrupt:
         scheduler.shutdown()
-        print("Scheduler stopped.")
+        logging.info("Scheduler stopped.")
+
+
+
+def schedule_jobs(scheduler):
+    scheduler.add_job(
+        safe_job(predict_job),
+        "cron",
+        day_of_week="sat",
+        hour=20,
+        minute=30
+    )
+    scheduler.add_job(
+        safe_job(retrain_pipeline_job),
+        "cron",
+        day_of_week="mon",
+        hour=0,
+        minute=0
+    )
+    scheduler.add_job(
+        safe_job(evaluate_job),
+        "cron",
+        day_of_week="mon",
+        hour=0,
+        minute=0
+    )

@@ -1,7 +1,5 @@
 import requests
 import pandas as pd
-import time
-import random
 
 BASE_URL = "https://api.openf1.org/v1"
 
@@ -35,23 +33,11 @@ def fetch_driver(driver_number: int, session_key: int):
     drivers = response.json()
     return pd.DataFrame(drivers)
 
-def fetch_driver_stints(meeting_key: int, session_key: int,driver_number: int):
-    response = requests.get(f"{BASE_URL}/stints?meeting_key={meeting_key}&session_key={session_key}&driver_number={driver_number}")
-    response.raise_for_status()
-    stints = response.json()
-    return pd.DataFrame(stints)
-
 def fetch_weather(meeting_key: int, session_key: int):
     response = requests.get(f"{BASE_URL}/weather?meeting_key={meeting_key}&session_key={session_key}")
     response.raise_for_status()
     weather = response.json()
     return pd.DataFrame(weather)
-
-def fetch_laps(meeting_key: int, session_key: int, driver_number: int):
-    response = requests.get(f"{BASE_URL}/laps?meeting_key={meeting_key}&session_key={session_key}&driver_number={driver_number}")
-    response.raise_for_status()
-    laps = response.json()
-    return pd.DataFrame(laps)
 
 def fetch_latest_meeting():
     response = requests.get(f"{BASE_URL}/meetings?meeting_key=latest")

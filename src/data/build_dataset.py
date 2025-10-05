@@ -1,6 +1,12 @@
 import pandas as pd
 from src.data.open_F1_service import fetch_meetings, fetch_sessions, fetch_results, fetch_driver, fetch_starting_positions, fetch_weather, fetch_latest_meeting
+import logging
 
+logging.basicConfig(
+    filename="logs/data_building.log",
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s"
+)
 
 def summarize_weather(weather: pd.DataFrame) -> dict:
     """Aggregate weather samples into session-level features."""
@@ -64,6 +70,7 @@ def build_historical_dataset(limit_year: int = 2023):
             for _, row in starting_grid.iterrows():
                 driver = fetch_driver(row["driver_number"], qualifying_session["session_key"])
                 if driver.empty:
+                    logging.info(f"Driver {row['driver_number']} not found, skipping.")
                     continue
 
                 starting_pos_row = starting_grid[starting_grid["driver_number"] == row["driver_number"]]
@@ -74,6 +81,7 @@ def build_historical_dataset(limit_year: int = 2023):
                 # --- Handle finishing position & DNF flag ---
                 result_row = results[results["driver_number"] == row["driver_number"]]
                 if result_row.empty:
+                    logging.info(f"Result for driver {row['driver_number']} not found, assuming DNF.")
                     continue
 
                 pos_raw = result_row.get("position").iloc[0]
@@ -101,7 +109,7 @@ def build_historical_dataset(limit_year: int = 2023):
                 all_races.append(row)
 
         except Exception as e:
-            print(f"Failed meeting {meeting['meeting_name']}: {e}")
+            logging.exception(f"Failed meeting {meeting['meeting_name']}: {e}")
     
     int_cols = ["season", "driver_number", "starting_position", "finishing_position", "dnf", "relevance_label"]
     df = pd.DataFrame(all_races)
@@ -111,7 +119,7 @@ def build_historical_dataset(limit_year: int = 2023):
 
 
     df.to_csv("data/processed/features.csv", index=False)
-    print(f"Saved dataset with {len(df)} rows")
+    logging.info(f"Saved dataset with {len(df)} rows")
 
     return df
 
@@ -125,7 +133,7 @@ def build_latest_race_dataset():
         sessions = fetch_sessions(meeting["meeting_key"])
         qualifying_sessions = sessions[(sessions["session_type"] == "Qualifying") & (sessions["session_name"] == "Qualifying")]
         if qualifying_sessions.empty:
-            print("No qualifying session found for latest meeting.")
+            logging.info("No qualifying session found for latest meeting.")
             return
         qualifying_session = qualifying_sessions.iloc[0]
         starting_grid = fetch_starting_positions(qualifying_session["session_key"])
@@ -136,6 +144,7 @@ def build_latest_race_dataset():
             driver_info = fetch_driver(driver["driver_number"], qualifying_session["session_key"])
 
             if driver_info.empty:
+                logging.info(f"Driver {driver['driver_number']} not found, skipping.")
                 continue
 
             starting_pos_row = starting_grid[starting_grid["driver_number"] == driver["driver_number"]]
@@ -159,7 +168,7 @@ def build_latest_race_dataset():
             races.append(row)
 
     except Exception as e:
-        print(f"Failed to build latest race dataset: {e}")
+        logging.exception(f"Failed to build latest race dataset: {e}")
 
 
     df = pd.DataFrame(races)
@@ -168,7 +177,7 @@ def build_latest_race_dataset():
         if c in df.columns:
             df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0).astype(int)
     df.to_csv("data/processed/latest.csv", index=False)
-    print(f"Saved dataset with {len(df)} rows")
+    logging.info(f"Saved dataset with {len(df)} rows")
 
     return df
     
