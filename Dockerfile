@@ -20,10 +20,9 @@ RUN pip install --upgrade pip && pip install -r requirements.txt
 # Copy your application code and data/logs directories
 COPY src/ ./src/
 COPY data/ ./data/
-COPY logs/ ./logs/
 
 # Expose the port FastAPI will run on
 EXPOSE 8000
 
 # Run the application
-CMD ["python", "-m", "src"]
+CMD ["uvicorn", "src.__main__:app", "--host", "0.0.0.0", "--port", "8000", "--log-level", "info"]

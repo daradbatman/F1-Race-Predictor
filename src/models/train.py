@@ -8,12 +8,13 @@ from sklearn.metrics import ndcg_score
 import numpy as np
 import joblib
 import logging
+import os
 
-logging.basicConfig(
-    filename="logs/training.log",
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s"
-)
+_LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+_LOG_LEVEL_VALUE = getattr(logging, _LOG_LEVEL, logging.INFO)
+if not logging.getLogger().handlers:
+    logging.basicConfig(level=_LOG_LEVEL_VALUE, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+logger = logging.getLogger(__name__)
 
 def train_model():
     # Load data
@@ -93,9 +94,9 @@ def train_model():
             winner_correct += 1
         total_races += 1
 
-    logging.info(f"Avg NDCG@10: {np.mean(ndcgs):.4f}")
-    logging.info(f"Winner accuracy: {winner_correct}/{total_races} = {winner_correct/total_races:.2%}")
+    logger.info(f"Avg NDCG@10: {np.mean(ndcgs):.4f}")
+    logger.info(f"Winner accuracy: {winner_correct}/{total_races} = {winner_correct/total_races:.2%}")
 
     # Save model
     joblib.dump(pipeline, "f1_ranker_model.pkl")
-    logging.info("Model trained and saved as f1_ranker_model.pkl")
+    logger.info("Model trained and saved as f1_ranker_model.pkl")

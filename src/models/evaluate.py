@@ -3,12 +3,13 @@ from sklearn.metrics import ndcg_score
 from scipy.stats import spearmanr, kendalltau
 from src.data.open_F1_service import fetch_latest_session_results
 import logging
+import os
 
-logging.basicConfig(
-    filename="logs/evaluation.log",
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s"
-)
+_LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+_LOG_LEVEL_VALUE = getattr(logging, _LOG_LEVEL, logging.INFO)
+if not logging.getLogger().handlers:
+    logging.basicConfig(level=_LOG_LEVEL_VALUE, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+logger = logging.getLogger(__name__)
 
 def evaluate_model():
     # Step 1: Fetch latest race results
@@ -35,11 +36,11 @@ def evaluate_model():
     predicted_winner = merged.loc[merged["predicted_rank"].idxmin(), "driver_name"]
     winner_correct = actual_winner == predicted_winner
     
-    logging.info(f"Evaluation for race:")
-    logging.info(f"  NDCG@10: {ndcg:.4f}")
-    logging.info(f"  Kendall Tau: {tau:.4f}")
-    logging.info(f"  Spearman: {rho:.4f}")
-    logging.info(f"  Winner predicted correctly? {winner_correct} "
+    logger.info(f"Evaluation for race:")
+    logger.info(f"  NDCG@10: {ndcg:.4f}")
+    logger.info(f"  Kendall Tau: {tau:.4f}")
+    logger.info(f"  Spearman: {rho:.4f}")
+    logger.info(f"  Winner predicted correctly? {winner_correct} "
           f"(Pred={predicted_winner}, Actual={actual_winner})")
 
     return {
