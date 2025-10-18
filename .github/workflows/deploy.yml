@@ -1,41 +1,52 @@
-name: Deploy to Cloud Run
+name: Build and Deploy to GCE (container)
 
 on:
   push:
     branches:
       - main
 
-env:
-  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-  REGION: ${{ secrets.GCP_REGION }}
-  SERVICE: ${{ secrets.GCP_SERVICE }}
-  IMAGE: ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_SERVICE }}/${{ secrets.GCP_SERVICE }}
-
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          service_account_key: ${{ secrets.GCP_SA_KEY }}
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          export_default_credentials: true
 
-      - name: Configure Docker for Artifact Registry
-        run: gcloud auth configure-docker ${{ secrets.GCP_REGION }}-docker.pkg.dev --quiet
-
-      - name: Build and push Docker image
+      - name: Configure Docker to use Artifact Registry
         run: |
-          docker build -t $IMAGE:$GITHUB_SHA .
-          docker push $IMAGE:$GITHUB_SHA
+          gcloud auth configure-docker ${{
+            secrets.GCP_REGION }}-docker.pkg.dev --quiet
 
-      - name: Deploy to Cloud Run
-        uses: google-github-actions/deploy-cloudrun@v2
-        with:
-          service: ${{ secrets.GCP_SERVICE }}
-          image: $IMAGE:${{ github.sha }}
-          region: ${{ secrets.GCP_REGION }}
-          allow_unauthenticated: true
+      - name: Build Docker image
+        run: |
+          IMAGE="${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.AR_REPO }}/${{ env.IMAGE_NAME }}:$(date +%s)"
+          echo "IMAGE=${IMAGE}" >> $GITHUB_ENV
+          docker build -t "$IMAGE" .
+
+      - name: Push image to Artifact Registry
+        run: |
+          docker push "$IMAGE"
+
+      - name: Update Compute Engine instance to use new container image
+        env:
+          IMAGE: ${{ env.IMAGE }}
+        run: |
+          # Update the existing VM to use the new container image.
+          # This requires the VM to have been created with container support or to be container-optimized.
+          gcloud compute instances update-container "${{ secrets.VM_NAME }}" \
+            --zone="${{ secrets.GCP_ZONE }}" \
+            --container-image="$IMAGE" \
+            --container-restart-policy=always
+
+      - name: Wait a bit and check instance status
+        run: |
+          echo "Sleeping 10s to let GCE restart container..."
+          sleep 10
+          gcloud compute instances describe "${{ secrets.VM_NAME }}" --zone="${{ secrets.GCP_ZONE }}" --format="get(status)"
